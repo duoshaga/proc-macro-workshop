@@ -35,6 +35,7 @@ fn do_expand(sdi: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let builder_struct_fields_def = generate_builder_struct_fields_def(fields)?;
     let builder_struct_factory_init_clauses = generate_builder_struct_factory_init_clauses(fields)?;
     let setter_functions = generate_setter_functions(fields)?;
+    let build_function = generate_build_function(fields, source_ident)?;
     let ret = quote::quote! {
         pub struct #builder_ident {
             // 下面这行代码是增增的，注意这里的用法：
@@ -51,6 +52,7 @@ fn do_expand(sdi: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         }
         impl #builder_ident {
             #setter_functions
+            #build_function
         }
     };
     Ok(ret)
@@ -108,6 +110,65 @@ fn generate_setter_functions(fields: &StructFields) -> syn::Result<proc_macro2::
         final_tokenstream.extend(tokenstream_piece)
     }
     Ok(final_tokenstream)
+}
+fn generate_build_function(
+    fields: &StructFields,
+    origin_struct_ident: &syn::Ident,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let idents: Vec<_> = fields.iter().map(|f| &f.ident).collect();
+    // let mut checker_code_pieces = Vec::new();
+    // for idx in 0..idents.len() {
+    //     let ident = idents[idx];
+    //     checker_code_pieces.push(quote::quote! {
+    //         if self.#ident.is_none() {
+    //             let err = format!("{} field missing", stringify!(#ident));
+    //             return std::result::Result::Err(err.into())
+    //         }
+    //     });
+    // }
+
+    // let fill_result_clauses: Vec<_> = idents
+    //     .iter()
+    //     .map(|f| {
+    //         quote::quote! {
+    //             #f: self.#f.clone().unwrap()
+    //         }
+    //     })
+    //     .collect();
+    // let token_stream = quote::quote! {
+    //     pub fn build(&mut self) -> std::result::Result<#origin_struct_ident, std::boxed::Box<dyn std::error::Error>> {
+    //         #(#checker_code_pieces)*
+    //         //  ^--注意，由于我们要重复的是一组if判断代码块，它们之间不需要用逗号分隔，所以这里的重复模式是`*`，而不是之前重复结构体字段时用到的`,*`
+    //         let ret = #origin_struct_ident{
+    //             #(#fill_result_clauses),*
+    //         };
+    //         std::result::Result::Ok(ret)
+    //     }
+    // };
+    // Ok(token_stream)
+    /*
+    let mut m = Vec::new();
+    //borrow of moved value: `idents`
+    for ident in idents {
+        m.push(quote::quote! {
+            #ident: self.#ident.clone().unwrap()
+        });
+    } */
+    let ret_tokenstream = quote::quote! {
+        fn build(&mut self)
+            -> std::result::Result<#origin_struct_ident,std::boxed::Box<dyn std::error::Error>>{
+                #(if self.#idents.is_none() {
+                    let err = format!("{} field missing!",stringify!(#idents));
+                    return std::result::Result::Err(err.into());
+                })
+                *
+                std::result::Result::Ok(#origin_struct_ident{
+                    #(#idents:self.#idents.clone().unwrap()
+                ),*
+                })
+            }
+    };
+    Ok(ret_tokenstream)
 }
 #[proc_macro_attribute]
 pub fn proc_attr_test(attr: TokenStream, item: TokenStream) -> TokenStream {
