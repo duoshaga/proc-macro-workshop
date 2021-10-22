@@ -116,18 +116,9 @@ fn generate_build_function(
     origin_struct_ident: &syn::Ident,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let idents: Vec<_> = fields.iter().map(|f| &f.ident).collect();
-    // let mut checker_code_pieces = Vec::new();
-    // for idx in 0..idents.len() {
-    //     let ident = idents[idx];
-    //     checker_code_pieces.push(quote::quote! {
-    //         if self.#ident.is_none() {
-    //             let err = format!("{} field missing", stringify!(#ident));
-    //             return std::result::Result::Err(err.into())
-    //         }
-    //     });
-    // }
 
-    // let fill_result_clauses: Vec<_> = idents
+    let mut fill_result_clauses: Vec<_> = Vec::new();
+    // fill_result_clauses = idents
     //     .iter()
     //     .map(|f| {
     //         quote::quote! {
@@ -135,40 +126,50 @@ fn generate_build_function(
     //         }
     //     })
     //     .collect();
-    // let token_stream = quote::quote! {
-    //     pub fn build(&mut self) -> std::result::Result<#origin_struct_ident, std::boxed::Box<dyn std::error::Error>> {
-    //         #(#checker_code_pieces)*
-    //         //  ^--注意，由于我们要重复的是一组if判断代码块，它们之间不需要用逗号分隔，所以这里的重复模式是`*`，而不是之前重复结构体字段时用到的`,*`
-    //         let ret = #origin_struct_ident{
-    //             #(#fill_result_clauses),*
-    //         };
-    //         std::result::Result::Ok(ret)
-    //     }
-    // };
-    // Ok(token_stream)
-    /*
-    let mut m = Vec::new();
-    //borrow of moved value: `idents`
-    for ident in idents {
-        m.push(quote::quote! {
+    //如果使用for ident in idents 会出现 borrow of moved value: `idents`
+    for ident in idents.iter() {
+        fill_result_clauses.push(quote::quote! {
             #ident: self.#ident.clone().unwrap()
         });
-    } */
-    let ret_tokenstream = quote::quote! {
-        fn build(&mut self)
-            -> std::result::Result<#origin_struct_ident,std::boxed::Box<dyn std::error::Error>>{
-                #(if self.#idents.is_none() {
-                    let err = format!("{} field missing!",stringify!(#idents));
-                    return std::result::Result::Err(err.into());
-                })
-                *
-                std::result::Result::Ok(#origin_struct_ident{
-                    #(#idents:self.#idents.clone().unwrap()
-                ),*
-                })
+    }
+
+    let mut checker_code_pieces = Vec::new();
+    for idx in 0..idents.len() {
+        let ident = idents[idx];
+        checker_code_pieces.push(quote::quote! {
+            if self.#ident.is_none() {
+                let err = format!("{} field missing", stringify!(#ident));
+                return std::result::Result::Err(err.into())
             }
+        });
+    }
+    let token_stream = quote::quote! {
+        pub fn build(&mut self) -> std::result::Result<#origin_struct_ident, std::boxed::Box<dyn std::error::Error>> {
+            #(#checker_code_pieces)*
+            //  ^--注意，由于我们要重复的是一组if判断代码块，它们之间不需要用逗号分隔，所以这里的重复模式是`*`，而不是之前重复结构体字段时用到的`,*`
+            let ret = #origin_struct_ident{
+                #(#fill_result_clauses),*
+            };
+            std::result::Result::Ok(ret)
+        }
     };
-    Ok(ret_tokenstream)
+    Ok(token_stream)
+
+    // let ret_tokenstream = quote::quote! {
+    //     fn build(&mut self)
+    //         -> std::result::Result<#origin_struct_ident,std::boxed::Box<dyn std::error::Error>>{
+    //             #(if self.#idents.is_none() {
+    //                 let err = format!("{} field missing!",stringify!(#idents));
+    //                 return std::result::Result::Err(err.into());
+    //             })
+    //             *
+    //             std::result::Result::Ok(#origin_struct_ident{
+    //                 #(#idents:self.#idents.clone().unwrap()
+    //             ),*
+    //             })
+    //         }
+    // };
+    // Ok(ret_tokenstream)
 }
 #[proc_macro_attribute]
 pub fn proc_attr_test(attr: TokenStream, item: TokenStream) -> TokenStream {
