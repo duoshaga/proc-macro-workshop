@@ -1,8 +1,8 @@
 [package]
+edition = "2021"
 name = "proc-macro-workshop"
-version = "0.0.0"
-edition = "2018"
 publish = false
+version = "0.0.0"
 
 [workspace]
 
@@ -11,8 +11,8 @@ name = "workshop"
 path = "main.rs"
 
 [dependencies]
-bitfield = { path = "bitfield" }
-derive_builder = { path = "builder" }
-derive_debug = { path = "debug" }
-seq = { path = "seq" }
-sorted = { path = "sorted" }
+bitfield = {path = "bitfield"}
+derive_builder = {path = "builder"}
+derive_debug = {path = "debug"}
+seq = {path = "seq"}
+sorted = {path = "sorted"}
