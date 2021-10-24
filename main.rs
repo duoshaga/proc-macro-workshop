@@ -10,7 +10,7 @@
 //             ...
 //         }
 //     }
-
+#![allow(unused)]
 use derive_builder::Builder;
 
 #[derive(Builder)]
