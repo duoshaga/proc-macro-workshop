@@ -1,4 +1,4 @@
-error: expected `builder(each = "...")`
+error: expct000ed `builder(each = "...")`
   --> tests/08-unrecognized-attribute.rs:22:7
    |
 22 |     #[builder(eac = "arg")]

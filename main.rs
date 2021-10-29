@@ -1,37 +1,54 @@
-// Generate a `build` method to go from builder to original struct.
+// The std::process::Command builder handles args in a way that is potentially
+// more convenient than passing a full vector of args to the builder all at
+// once.
 //
-// This method should require that every one of the fields has been explicitly
-// set; it should return an error if a field is missing. The precise error type
-// is not important. Consider using Box<dyn Error>, which you can construct
-// using the impl From<String> for Box<dyn Error>.
+// Look for a field attribute #[builder(each = "...")] on each field. The
+// generated code may assume that fields with this attribute have the type Vec
+// and should use the word given in the string literal as the name for the
+// corresponding builder method which accepts one vector element at a time.
 //
-//     impl CommandBuilder {
-//         pub fn build(&mut self) -> Result<Command, Box<dyn Error>> {
-//             ...
-//         }
-//     }
-#![allow(unused)]
+// In order for the compiler to know that these builder attributes are
+// associated with your macro, they must be declared at the entry point of the
+// derive macro. Otherwise the compiler will report them as unrecognized
+// attributes and refuse to compile the caller's code.
+//
+//     #[proc_macro_derive(Builder, attributes(builder))]
+//
+// These are called inert attributes. The word "inert" indicates that these
+// attributes do not correspond to a macro invocation on their own; they are
+// simply looked at by other macro invocations.
+//
+// If the new one-at-a-time builder method is given the same name as the field,
+// avoid generating an all-at-once builder method for that field because the
+// names would conflict.
+//
+//
+// Resources:
+//
+//   - Relevant syntax tree types:
+//     https://docs.rs/syn/1.0/syn/struct.Attribute.html
+//     https://docs.rs/syn/1.0/syn/enum.Meta.html
+
 use derive_builder::Builder;
 
 #[derive(Builder)]
 pub struct Command {
     executable: String,
+    #[builder(each = "arg")]
     args: Vec<String>,
+    #[builder(each = "env")]
     env: Vec<String>,
-    current_dir: String,
+    current_dir: Option<String>,
 }
 
 fn main() {
-    let mut builder = Command::builder();
-    builder.executable("cargo".to_owned());
-    builder.args(vec!["build".to_owned(), "--release".to_owned()]);
-    builder.env(vec![]);
-    builder.current_dir("..".to_owned());
+    let command = Command::builder()
+        .executable("cargo".to_owned())
+        // .arg("build".to_owned())
+        // .arg("--release".to_owned())
+        .build()
+        .unwrap();
 
-    let command = builder.build().unwrap();
     assert_eq!(command.executable, "cargo");
-    let a = 1;
-    if a == 1 {
-        println!("fffff");
-    }
+    assert_eq!(command.args, vec!["build", "--release"]);
 }
